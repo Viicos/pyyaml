@@ -1,0 +1,4 @@
+# Build dependencies of PyYAML (see `build-system.requires` in `pyproject.toml`), and the build frontend used for the sdist.
+setuptools==84.0.0
+Cython==3.3.0
+build==1.6.1

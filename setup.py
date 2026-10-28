@@ -1,11 +1,16 @@
 
-NAME = 'PyYAML'
+NAME = 'pyyaml-cp315'
 VERSION = '6.0.3'
 DESCRIPTION = "YAML parser and emitter for Python"
 LONG_DESCRIPTION = """\
 YAML is a data serialization format designed for human readability
 and interaction with scripting languages.  PyYAML is a YAML parser
 and emitter for Python.
+
+This distribution is PyYAML 6.0.3, unmodified, with wheels for
+CPython 3.15 (cp315 and cp315t), which PyYAML does not publish yet.
+It provides the same `yaml` package as PyYAML, so it can't be installed
+alongside it. See https://github.com/Viicos/pyyaml/tree/cp315.
 
 PyYAML features a complete YAML 1.1 parser, Unicode support, pickle
 support, capable extension API, and sensible error messages.  PyYAML
@@ -19,7 +24,7 @@ AUTHOR_EMAIL = 'xi@resolvent.net'
 LICENSE = "MIT"
 PLATFORMS = "Any"
 URL = "https://pyyaml.org/"
-DOWNLOAD_URL = "https://pypi.org/project/PyYAML/"
+DOWNLOAD_URL = "https://pypi.org/project/pyyaml-cp315/"
 CLASSIFIERS = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -35,6 +40,7 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -46,6 +52,7 @@ PROJECT_URLS = {
    'Documentation': 'https://pyyaml.org/wiki/PyYAMLDocumentation',
    'Mailing lists': 'http://lists.sourceforge.net/lists/listinfo/yaml-core',
    'Source Code': 'https://github.com/yaml/pyyaml',
+   'Wheels Source Code': 'https://github.com/Viicos/pyyaml/tree/cp315',
 }
 
 LIBYAML_CHECK = """

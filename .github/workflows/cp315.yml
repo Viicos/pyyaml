@@ -1,0 +1,182 @@
+name: cp315
+
+on:
+  push:
+    branches:
+      - cp315
+    tags:
+      - 'cp315-*'
+  pull_request: {}
+
+permissions:
+  contents: read
+
+env:
+  # The libyaml release linked into the wheels, the one PyYAML's own wheels bundle:
+  LIBYAML_URL: https://github.com/yaml/libyaml/releases/download/0.2.5/yaml-0.2.5.tar.gz
+  LIBYAML_SHA256: c642ae9b75fee120b2d96c712538bd2cf283228d2337df2cf2988e3c02678ef4
+
+jobs:
+  sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required to attest build provenance, verified by the release job:
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.15
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: '3.15'
+          enable-cache: false
+
+      # Without isolation, so that the build dependencies are the hash-pinned ones.
+      - name: Build sdist
+        run: |
+          uv venv
+          uv pip install --require-hashes -r cp315/build-requirements.txt
+          .venv/bin/python -m build --sdist --no-isolation --outdir dist
+        env:
+          PYYAML_FORCE_CYTHON: '1'
+
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          subject-path: dist/*
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pypi_files_sdist
+          path: dist
+          if-no-files-found: error
+
+  wheels:
+    name: Build wheels on ${{ matrix.runner }}
+    needs: [sdist]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      # Required to attest build provenance, verified by the release job:
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Each Linux runner builds the manylinux and the musllinux wheels of its architecture.
+          - runner: ubuntu-24.04
+          - runner: ubuntu-24.04-arm
+          - runner: macos-15
+            macos-deployment-target: '11.0'
+          - runner: macos-15-intel
+            macos-deployment-target: '10.15'
+    env:
+      # Also read when building libyaml, so that it targets the same macOS version as the extension.
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos-deployment-target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The wheels are built from the sdist, as installers would.
+      - name: Get the sdist
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pypi_files_sdist
+          path: sdist
+
+      - name: Extract the sdist
+        run: |
+          mkdir pyyaml
+          tar -xzf sdist/*.tar.gz --strip-components=1 -C pyyaml
+
+      - name: Download libyaml
+        run: |
+          curl --fail --location --silent --show-error --output libyaml.tar.gz "$LIBYAML_URL"
+          echo "$LIBYAML_SHA256  libyaml.tar.gz" | shasum -a 256 --check
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@b3395e271a35f73dad77f21802abe9b986dfe299 # v4.3.1
+        with:
+          package-dir: pyyaml
+          config-file: cp315/cibuildwheel.toml
+          output-dir: wheelhouse
+
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          subject-path: wheelhouse/*.whl
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pypi_files_${{ matrix.runner }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  check: # This job does nothing and is only used for the branch protection
+    if: always()
+    outputs:
+      result: ${{ steps.all-green.outputs.result }}
+    needs: [sdist, wheels]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+        id: all-green
+        with:
+          jobs: ${{ toJSON(needs) }}
+
+  release:
+    needs: [check]
+    if: needs.check.outputs.result == 'success' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment: release
+
+    permissions:
+      id-token: write
+      attestations: read
+
+    steps:
+      - name: Get dist artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: pypi_files_*
+          merge-multiple: true
+          path: dist
+
+      - name: Check the tag matches the package version
+        run: |
+          VERSION=$(find dist -name 'pyyaml_cp315-*.tar.gz' -exec basename {} .tar.gz \; | sed 's/^pyyaml_cp315-//')
+          if [ "$GITHUB_REF_NAME" != "cp315-$VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match the package version (cp315-$VERSION)"
+            exit 1
+          fi
+
+      - name: Verify dist artifacts provenance
+        run: |
+          for f in dist/*; do
+            gh attestation verify "$f" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/cp315.yml" \
+              --source-ref "$GITHUB_REF" \
+              --source-digest "$GITHUB_SHA" \
+              --deny-self-hosted-runners
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Test wheels integrity
+        run: |
+          for whl in dist/*.whl; do unzip -qt "$whl"; done
+
+      - name: Upload package to PyPI
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: dist/

@@ -1,3 +1,6 @@
+> [!NOTE]
+> This branch publishes [`pyyaml-cp315`](https://pypi.org/project/pyyaml-cp315/), PyYAML 6.0.3 with CPython 3.15 wheels. See [`cp315/README.md`](cp315/README.md).
+
 PyYAML
 ======
 

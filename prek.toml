@@ -1,0 +1,31 @@
+# Only the files specific to this fork are checked, upstream files are left as they are.
+files = '^(\.github/(workflows/|dependabot\.yml$)|cp315/|prek\.toml$|\.yamlfmt\.yaml$)'
+
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "end-of-file-fixer" },
+  { id = "trailing-whitespace" },
+]
+
+[[repos]]
+repo = "https://github.com/google/yamlfmt"
+rev = "v0.21.0"
+hooks = [
+  { id = "yamlfmt" },
+]
+
+[[repos]]
+repo = "https://github.com/zizmorcore/zizmor-pre-commit"
+rev = "v1.31.1"
+hooks = [
+  { id = "zizmor" },
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.17.0"
+hooks = [
+  { id = "ruff-check", args = ["--config", "cp315/ruff.toml"] },
+  { id = "ruff-format", args = ["--config", "cp315/ruff.toml"] },
+]

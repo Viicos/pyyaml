@@ -1,0 +1,21 @@
+[tool.cibuildwheel]
+build = ['cp315-*', 'cp315t-*']
+archs = ['native']
+
+# libyaml does not depend on the Python version, so it is built once per platform (and per container on Linux).
+before-all = 'sh cp315/build-libyaml.sh libyaml.tar.gz /tmp/libyaml'
+
+# Build without isolation, so that the build dependencies are the hash-pinned ones from `build-requirements.txt`,
+# instead of whatever PyPI serves at build time.
+build-frontend = { name = 'build', args = ['--no-isolation'] }
+before-build = 'pip install --require-hashes --no-deps -r {project}/cp315/build-requirements.txt'
+
+# `PYYAML_FORCE_LIBYAML` fails the build instead of producing a pure Python wheel when the extension can't be built.
+environment = { PYYAML_FORCE_LIBYAML = '1', PYYAML_FORCE_CYTHON = '1', CFLAGS = '-I/tmp/libyaml/include', LDFLAGS = '-L/tmp/libyaml/lib' }
+
+# Tests run from a temporary directory: `{project}` is the repository, `{package}` the extracted sdist.
+test-requires = ['pytest==9.1.1']
+test-command = [
+    'python {project}/cp315/check_wheel.py',
+    'python -m pytest -q -p no:cacheprovider {package}/tests',
+]
