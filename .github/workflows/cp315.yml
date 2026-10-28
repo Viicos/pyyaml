@@ -72,7 +72,7 @@ jobs:
           # Each Linux runner builds the manylinux and the musllinux wheels of its architecture.
           - runner: ubuntu-24.04
           - runner: ubuntu-24.04-arm
-          - runner: macos-15
+          - runner: macos-26
             macos-deployment-target: '11.0'
           - runner: macos-15-intel
             macos-deployment-target: '10.15'
